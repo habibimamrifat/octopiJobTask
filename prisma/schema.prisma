@@ -11,11 +11,19 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  PLATFORM_ADMIN
+  ORGANIZATION_ADMIN
+  ORGANIZATION_MEMBER
+}
+
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(uuid())
+  email          String   @unique
+  name           String
+  password       String
+  role           UserRole @default(ORGANIZATION_MEMBER)
+  organizationId String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

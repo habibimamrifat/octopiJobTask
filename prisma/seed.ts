@@ -1,15 +1,11 @@
 import { config } from 'dotenv';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, UserRole } from '@prisma/client';
+import { BcryptHelper } from '../src/helpers/bcrypt/bcrypt.helper';
 
 config({
   path: process.env.NODE_ENV ? `.env.${process.env.NODE_ENV}` : '.env',
 });
-
-// console.log(
-//   'Seeding the database...',
-//   `Using database URL: ${process.env.DATABASE_URL}`,
-// );
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL,
@@ -17,23 +13,31 @@ const adapter = new PrismaPg({
 
 const prisma = new PrismaClient({ adapter });
 
-async function main() {
-  const user = await prisma.user.create({
-    data: {
-      name: 'Test User',
-      email: 'test@octopidigital.com',
-      password: 'test123',
+export async function seedPlatformAdmin() {
+  const platformAdmin = await prisma.user.findFirst({
+    where: {
+      role: UserRole.PLATFORM_ADMIN,
     },
   });
 
-  console.log('Seeded user:', user);
-}
+  if (platformAdmin) {
+    return;
+  }
 
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
+  const bcrypt = new BcryptHelper();
+
+  const password = await bcrypt.createHash(
+    process.env.PLATFORM_ADMIN_PASSWORD!,
+  );
+
+  await prisma.user.create({
+    data: {
+      name: process.env.PLATFORM_ADMIN_NAME!,
+      email: process.env.PLATFORM_ADMIN_EMAIL!,
+      password,
+      role: UserRole.PLATFORM_ADMIN,
+    },
   });
+
+  console.log('Platform admin seeded successfully');
+}
