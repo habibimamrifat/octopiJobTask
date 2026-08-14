@@ -15,6 +15,7 @@ const adapter = new PrismaPg({
 const prisma = new PrismaClient({ adapter });
 
 export async function seedPlatformAdmin() {
+  console.log('seeding admin');
   const platformAdmin = await prisma.user.findFirst({
     where: {
       role: UserRole.PLATFORM_ADMIN,

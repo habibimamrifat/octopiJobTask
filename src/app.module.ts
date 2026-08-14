@@ -11,6 +11,7 @@ import { JwtHelperModule } from './helpers/jwt/jwt.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { JobsModule } from './jobs/job.module';
 import { BcryptModule } from './helpers/bcrypt/bcrypt.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { BcryptModule } from './helpers/bcrypt/bcrypt.module';
     BcryptModule,
     AuthModule,
     JobsModule,
+    SubscriptionsModule,
   ],
   controllers: [AppController],
   providers: [
