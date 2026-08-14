@@ -5,12 +5,16 @@ import { AppConfigModule } from './configs/configEnv.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { APP_GUARD } from '@nestjs/core';
 import { RoleGuard } from './guards/role.guard';
+import { MailModule } from './helpers/mail/mail.module';
+import { AuthGuard } from './guards/auth.guard';
+import { JwtHelperModule } from './helpers/jwt/jwt.module';
 
 @Module({
-  imports: [AppConfigModule, PrismaModule],
+  imports: [AppConfigModule, PrismaModule, MailModule, JwtHelperModule],
   controllers: [AppController],
   providers: [
     AppService,
+    AuthGuard,
     {
       provide: APP_GUARD,
       useClass: RoleGuard,

@@ -1,36 +1,41 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { JwtModule } from '@nestjs/jwt';
+
 import { providerNames } from '../../consts/providerNames.const';
-import { JwtSignOptions } from '@nestjs/jwt';
+import { JwtHelperService } from './jwt.service';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [
+    ConfigModule,
+    JwtModule.register({}),
+  ],
+
   providers: [
     {
       provide: providerNames.JWT_ACCESS_CONFIG,
       inject: [ConfigService],
-      useFactory: (configService: ConfigService): JwtSignOptions => ({
+      useFactory: (configService: ConfigService) => ({
         secret: configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
-        expiresIn: configService.getOrThrow(
+        expiresIn: configService.getOrThrow<string>(
           'JWT_ACCESS_EXPIRES_IN',
-        ) as JwtSignOptions['expiresIn'],
-        issuer: configService.getOrThrow<string>('JWT_ISSUER'),
-        audience: configService.getOrThrow<string>('JWT_AUDIENCE'),
+        ),
       }),
     },
     {
       provide: providerNames.JWT_REFRESH_CONFIG,
       inject: [ConfigService],
-      useFactory: (configService: ConfigService): JwtSignOptions => ({
+      useFactory: (configService: ConfigService) => ({
         secret: configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-        expiresIn: configService.getOrThrow(
+        expiresIn: configService.getOrThrow<string>(
           'JWT_REFRESH_EXPIRES_IN',
-        ) as JwtSignOptions['expiresIn'],
-        issuer: configService.getOrThrow<string>('JWT_ISSUER'),
-        audience: configService.getOrThrow<string>('JWT_AUDIENCE'),
+        ),
       }),
     },
+
+    JwtHelperService,
   ],
-  exports: [providerNames.JWT_ACCESS_CONFIG, providerNames.JWT_REFRESH_CONFIG],
+
+  exports: [JwtHelperService],
 })
 export class JwtHelperModule {}
