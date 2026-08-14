@@ -24,6 +24,9 @@ model User {
   password       String
   role           UserRole @default(ORGANIZATION_MEMBER)
   organizationId String?
+  refreshToken   String?
+  resetToken     String?
+  resetTokenExpiresAt DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

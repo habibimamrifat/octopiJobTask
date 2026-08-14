@@ -1,40 +1,53 @@
 import {
-  Controller,
-  Get,
-  Post,
   Body,
-  Patch,
-  Param,
-  Delete,
+  Controller,
+  Post,
 } from '@nestjs/common';
+
 import { AuthService } from './auth.service';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { LoginDto } from './dto/logIn.dto';
+import { ForgotPasswordDto } from './dto/forget-password.dto';
+import { RouteFor } from '../../decorators/route-for.decorator';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+  ) {}
 
-  @Post()
-  create(@Body() createAuthDto: any) {
-    return this.authService.create(createAuthDto);
+  @RouteFor(['all'])
+  @Post('login')
+  login(@Body() loginDto: LoginDto) {
+    return this.authService.login(loginDto);
   }
 
-  @Get()
-  findAll() {
-    return this.authService.findAll();
+  @RouteFor(['all'])
+  @Post('refresh')
+  refresh(
+    @Body() refreshTokenDto: RefreshTokenDto,
+  ) {
+    return this.authService.refresh(refreshTokenDto);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.authService.findOne(+id);
+  @RouteFor(['all'])
+  @Post('forgot-password')
+  forgotPassword(
+    @Body() forgotPasswordDto: ForgotPasswordDto,
+  ) {
+    return this.authService.forgotPassword(
+      forgotPasswordDto,
+    );
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateAuthDto: any) {
-    return this.authService.update(+id, updateAuthDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.authService.remove(+id);
+  @RouteFor(['all'])
+  @Post('reset-password')
+  resetPassword(
+    @Body() resetPasswordDto: ResetPasswordDto,
+  ) {
+    return this.authService.resetPassword(
+      resetPasswordDto,
+    );
   }
 }

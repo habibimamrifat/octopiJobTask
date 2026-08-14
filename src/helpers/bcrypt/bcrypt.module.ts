@@ -1,7 +1,8 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { BcryptAbstract } from './bcrypt.abstract';
 import { BcryptHelper } from './bcrypt.helper';
 
+@Global()
 @Module({
   providers: [
     {
@@ -11,4 +12,4 @@ import { BcryptHelper } from './bcrypt.helper';
   ],
   exports: [BcryptAbstract],
 })
-export class HelpersModule {}
+export class BcryptModule {}
