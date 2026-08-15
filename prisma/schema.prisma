@@ -56,10 +56,13 @@ model SubscriptionPackage {
   features        Json
   isActive        Boolean         @default(true)
 
+  stripePriceId String? @unique
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  subscriptions OrganizationSubscription[]
+  subscriptions        OrganizationSubscription[]
+  pendingRegistrations PendingOrganizationRegistration[]
 }
 
 model Organization {
@@ -72,15 +75,15 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users        User[]
-  subscription OrganizationSubscription?
-  payments     Payment[]
-  transactions Transaction[]
+  users         User[]
+  subscriptions OrganizationSubscription[]
+  payments      Payment[]
+  transactions  Transaction[]
 }
 
 model OrganizationSubscription {
-  id             String             @id @default(uuid())
-  organizationId String             @unique
+  id             String @id @default(uuid())
+  organizationId String
   packageId      String
 
   status    SubscriptionStatus @default(PENDING)
@@ -93,16 +96,17 @@ model OrganizationSubscription {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([organizationId])
   @@index([packageId])
   @@index([status])
 }
 
 model Payment {
-  id               String        @id @default(uuid())
-  organizationId   String
-  amount           Decimal
-  currency         String        @default("usd")
-  status           PaymentStatus @default(PENDING)
+  id             String        @id @default(uuid())
+  organizationId String
+  amount         Decimal
+  currency       String        @default("usd")
+  status         PaymentStatus @default(PENDING)
 
   stripePaymentId  String? @unique
   stripeCheckoutId String? @unique
@@ -120,9 +124,9 @@ model Payment {
 }
 
 model Transaction {
-  id             String            @id @default(uuid())
+  id             String  @id @default(uuid())
   organizationId String
-  paymentId      String?           @unique
+  paymentId      String? @unique
 
   amount   Decimal
   currency String            @default("usd")
@@ -131,7 +135,7 @@ model Transaction {
   stripeEventId String? @unique
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  payment      Payment?      @relation(fields: [paymentId], references: [id])
+  payment      Payment?     @relation(fields: [paymentId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -139,15 +143,40 @@ model Transaction {
   @@index([organizationId])
   @@index([status])
 }
-  
-model User {
-  id                  String   @id @default(uuid())
-  email               String   @unique
-  name                String
-  password            String
-  role                UserRole @default(ORGANIZATION_MEMBER)
 
-  organizationId      String?
+model PendingOrganizationRegistration {
+  id String @id @default(uuid())
+
+  name         String
+  contactEmail String?
+  billingEmail String?
+
+  userName     String
+  userEmail    String
+  userPassword String
+
+  packageId        String
+  stripeCheckoutId String? @unique
+
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  package SubscriptionPackage @relation(fields: [packageId], references: [id])
+
+  @@index([userEmail])
+  @@index([packageId])
+}
+
+model User {
+  id       String   @id @default(uuid())
+  email    String   @unique
+  name     String
+  password String
+  role     UserRole @default(ORGANIZATION_MEMBER)
+
+  organizationId String?
 
   refreshToken        String?
   resetToken          String?

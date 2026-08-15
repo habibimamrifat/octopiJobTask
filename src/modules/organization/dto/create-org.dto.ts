@@ -1,5 +1,14 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import {
+  ApiProperty,
+  ApiPropertyOptional,
+} from '@nestjs/swagger';
+import {
+  IsEmail,
+  IsNotEmpty,
+  IsString,
+  IsUUID,
+  MinLength,
+} from 'class-validator';
 
 export class CreateOrganizationDto {
   @ApiProperty({
@@ -14,16 +23,16 @@ export class CreateOrganizationDto {
     example: 'contact@acme.com',
     description: 'Organization contact email',
   })
-  @IsNotEmpty()
   @IsEmail()
+  @IsNotEmpty()
   contactEmail!: string;
 
   @ApiPropertyOptional({
     example: 'billing@acme.com',
     description: 'Organization billing email',
   })
-  @IsNotEmpty()
   @IsEmail()
+  @IsNotEmpty()
   billingEmail!: string;
 
   @ApiProperty({
@@ -39,6 +48,7 @@ export class CreateOrganizationDto {
     description: 'Email of the initial organization admin',
   })
   @IsEmail()
+  @IsNotEmpty()
   userEmail!: string;
 
   @ApiProperty({
@@ -49,4 +59,12 @@ export class CreateOrganizationDto {
   @IsString()
   @MinLength(8)
   userPassword!: string;
+
+  @ApiProperty({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'ID of the subscription package selected during registration',
+  })
+  @IsUUID()
+  @IsNotEmpty()
+  packageId!: string;
 }

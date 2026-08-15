@@ -1,4 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
+
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -7,7 +9,7 @@ import { MailService } from '../../helpers/mail/mail.service';
 import { LoginDto } from './dto/logIn.dto';
 import { ForgotPasswordDto } from './dto/forget-password.dto';
 import { JwtPayload } from '../../types/jwt-payload.type';
-import { Prisma, User } from '@prisma/client';
+import { User } from '@prisma/client';
 import { BcryptAbstract } from '../../helpers/bcrypt/bcrypt.abstract';
 
 @Injectable()
@@ -142,8 +144,10 @@ export class AuthService {
       };
     }
 
-    const resetToken = crypto.randomUUID();
+    const resetToken = randomUUID();
+
     const hashedResetToken = await this.bcrypt.createHash(resetToken);
+
     const resetTokenExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
     await this.prisma.user.update({
@@ -156,8 +160,7 @@ export class AuthService {
       },
     });
 
-    const resetLink =
-  `${process.env.FRONTEND_BASE_URL}/reset-password/${resetToken}`;
+    const resetLink = `${process.env.FRONTEND_BASE_URL}/reset-password/${resetToken}`;
 
     await this.mailService.sendMail(
       user.email,
@@ -188,60 +191,56 @@ export class AuthService {
     };
   }
 
-async resetPassword(resetPasswordDto: ResetPasswordDto) {
-  const users = await this.prisma.user.findMany({
-    where: {
-      resetToken: {
-        not: null,
+  async resetPassword(resetPasswordDto: ResetPasswordDto) {
+    const users = await this.prisma.user.findMany({
+      where: {
+        resetToken: {
+          not: null,
+        },
+        resetTokenExpiresAt: {
+          gt: new Date(),
+        },
       },
-      resetTokenExpiresAt: {
-        gt: new Date(),
-      },
-    },
-  });
+    });
 
-  let matchedUser: User | null = null;
+    let matchedUser: User | null = null;
 
-  for (const user of users) {
-    if (!user.resetToken) {
-      continue;
+    for (const user of users) {
+      if (!user.resetToken) {
+        continue;
+      }
+
+      const valid = await this.bcrypt.compareHash(
+        resetPasswordDto.token,
+        user.resetToken,
+      );
+
+      if (valid) {
+        matchedUser = user;
+        break;
+      }
     }
 
-    const valid = await this.bcrypt.compareHash(
-      resetPasswordDto.token,
-      user.resetToken,
-    );
-
-    if (valid) {
-      matchedUser = user;
-      break;
+    if (!matchedUser) {
+      throw new UnauthorizedException('Invalid or expired reset token');
     }
+
+    const password = await this.bcrypt.createHash(resetPasswordDto.password);
+
+    await this.prisma.user.update({
+      where: {
+        id: matchedUser.id,
+      },
+      data: {
+        password,
+        resetToken: null,
+        resetTokenExpiresAt: null,
+        refreshToken: null,
+      },
+    });
+
+    return {
+      message: 'Password reset successfully',
+    };
   }
-
-  if (!matchedUser) {
-    throw new UnauthorizedException(
-      'Invalid or expired reset token',
-    );
-  }
-
-  const password = await this.bcrypt.createHash(
-    resetPasswordDto.password,
-  );
-
-  await this.prisma.user.update({
-    where: {
-      id: matchedUser.id,
-    },
-    data: {
-      password,
-      resetToken: null,
-      resetTokenExpiresAt: null,
-      refreshToken: null,
-    },
-  });
-
-  return {
-    message: 'Password reset successfully',
-  };
-}
 }

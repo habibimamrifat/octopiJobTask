@@ -4,73 +4,94 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { OrganizationStatus, Prisma } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import { OrganizationStatus, Prisma, SubscriptionStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateOrganizationDto } from './dto/create-org.dto';
 import { UpdateOrganizationDto } from './dto/update-org.dto';
-import { SubscriptionStatus } from '@prisma/client';
 import { UpdateOrganizationStatusDto } from './dto/update-org-status.dto';
+import { BcryptAbstract } from '../../helpers/bcrypt/bcrypt.abstract';
 
 @Injectable()
 export class OrganizationService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService,
+    private readonly bcrypt :BcryptAbstract
+  ) {}
 
-  async create(dto: CreateOrganizationDto) {
-    const existingUser = await this.prisma.user.findUnique({
+async create(dto: CreateOrganizationDto) {
+  const existingUser = await this.prisma.user.findUnique({
+    where: {
+      email: dto.userEmail,
+    },
+  });
+
+  if (existingUser) {
+    throw new ConflictException('User email already exists');
+  }
+
+  const packageData =
+    await this.prisma.subscriptionPackage.findUnique({
       where: {
-        email: dto.userEmail,
+        id: dto.packageId,
       },
     });
 
-    if (existingUser) {
-      throw new ConflictException('User email already exists');
-    }
+  if (!packageData) {
+    throw new NotFoundException('Subscription package not found');
+  }
 
-    const hashedPassword = await bcrypt.hash(dto.userPassword, 12);
+  if (!packageData.isActive) {
+    throw new BadRequestException(
+      'This subscription package is no longer available',
+    );
+  }
 
-    try {
-      return await this.prisma.$transaction(async (tx) => {
-        const organization = await tx.organization.create({
+  if (!packageData.stripePriceId) {
+    throw new BadRequestException(
+      'This subscription package is not configured for payment',
+    );
+  }
+
+ const hashedPassword = await this.bcrypt.createHash(dto.userPassword)
+
+  try {
+    return await this.prisma.$transaction(async (tx) => {
+      const registration =
+        await tx.pendingOrganizationRegistration.create({
           data: {
             name: dto.name,
             contactEmail: dto.contactEmail,
             billingEmail: dto.billingEmail,
+
+            userName: dto.userName,
+            userEmail: dto.userEmail,
+            userPassword: hashedPassword,
+
+            packageId: dto.packageId,
           },
         });
 
-        const user = await tx.user.create({
-          data: {
-            name: dto.userName,
-            email: dto.userEmail,
-            password: hashedPassword,
-            role: 'ORGANIZATION_ADMIN',
-            organizationId: organization.id,
-          },
-        });
-
-        return {
-          organization,
-          user: {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role,
-          },
-        };
-      });
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ConflictException('User email already exists');
-      }
-
-      throw error;
+      return {
+        registrationId: registration.id,
+        packageId: registration.packageId,
+        packageName: packageData.name,
+        amount: packageData.price,
+        billingInterval: packageData.billingInterval,
+      };
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      throw new ConflictException(
+        'User email already exists',
+      );
     }
+
+    throw error;
   }
+}
 
   async getMyOrganization(organizationId: string) {
     const organization = await this.prisma.organization.findUnique({
@@ -78,10 +99,14 @@ export class OrganizationService {
         id: organizationId,
       },
       include: {
-        subscription: {
+        subscriptions: {
           include: {
             package: true,
           },
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
         },
       },
     });
@@ -90,32 +115,26 @@ export class OrganizationService {
       throw new NotFoundException('Organization not found');
     }
 
-    if (!organization.subscription) {
-      throw new BadRequestException('You need to subscribe to continue');
+    const subscription = organization.subscriptions[0] ?? null;
+
+    if (subscription) {
+      if (subscription.status !== SubscriptionStatus.ACTIVE) {
+        throw new BadRequestException(
+          'You need an active subscription to continue',
+        );
+      }
+
+      if (!subscription.endDate || subscription.endDate <= new Date()) {
+        throw new BadRequestException(
+          'Your subscription has expired. Please renew your subscription to continue',
+        );
+      }
     }
 
-    if (!organization.subscription.package) {
-      throw new BadRequestException(
-        'Your subscription package is no longer available',
-      );
-    }
-
-    if (organization.subscription.status !== SubscriptionStatus.ACTIVE) {
-      throw new BadRequestException(
-        'You need an active subscription to continue',
-      );
-    }
-
-    if (
-      !organization.subscription.endDate ||
-      organization.subscription.endDate <= new Date()
-    ) {
-      throw new BadRequestException(
-        'Your subscription has expired. Please renew your subscription to continue',
-      );
-    }
-
-    return organization;
+    return {
+      ...organization,
+      subscription,
+    };
   }
 
   async updateMyOrganization(
@@ -144,9 +163,12 @@ export class OrganizationService {
             users: true,
           },
         },
-        subscription: {
+        subscriptions: {
           include: {
             package: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
           },
         },
       },
@@ -171,9 +193,12 @@ export class OrganizationService {
             createdAt: true,
           },
         },
-        subscription: {
+        subscriptions: {
           include: {
             package: true,
+          },
+          orderBy: {
+            createdAt: 'desc',
           },
         },
         _count: {
@@ -243,7 +268,12 @@ export class OrganizationService {
         id: organizationId,
       },
       include: {
-        subscription: true,
+        subscriptions: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+          take: 1,
+        },
       },
     });
 
@@ -251,7 +281,25 @@ export class OrganizationService {
       throw new NotFoundException('Organization not found');
     }
 
-    this.validateSubscription(organization.subscription);
+    const subscription = organization.subscriptions[0];
+
+    if (!subscription) {
+      throw new BadRequestException(
+        'You need to subscribe to continue',
+      );
+    }
+
+    if (subscription.status !== SubscriptionStatus.ACTIVE) {
+      throw new BadRequestException(
+        'You need an active subscription to continue',
+      );
+    }
+
+    if (!subscription.endDate || subscription.endDate <= new Date()) {
+      throw new BadRequestException(
+        'Your subscription has expired. Please renew your subscription to continue',
+      );
+    }
 
     return organization;
   }
@@ -263,7 +311,9 @@ export class OrganizationService {
     } | null,
   ) {
     if (!subscription) {
-      throw new BadRequestException('You need to subscribe to continue');
+      throw new BadRequestException(
+        'You need to subscribe to continue',
+      );
     }
 
     if (subscription.status !== 'ACTIVE') {

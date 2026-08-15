@@ -6,8 +6,10 @@ import { GlobalExceptionFilter } from './filter/exception.filter';
 import { seedPlatformAdmin } from '../prisma/seed';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
- 
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+  });
+
   console.log(
     `Server is running on port ${process.env.PORT ?? 3000}, node_env: ${process.env.NODE_ENV}`,
   );
@@ -16,9 +18,10 @@ async function bootstrap() {
   app.useGlobalFilters(new GlobalExceptionFilter());
   setupSwagger(app);
 
-  //seeding
+  // seeding
   await seedPlatformAdmin();
 
   await app.listen(process.env.PORT ?? 3000);
 }
+
 bootstrap();
