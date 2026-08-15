@@ -28,7 +28,7 @@ export class SubscriptionsController {
     return this.subscriptionsService.create(createSubscriptionDto);
   }
 
-  @RouteFor(['PLATFORM_ADMIN'])
+  @RouteFor(['all'])
   @Get()
   @ApiOperation({
     summary: 'Get all subscription plans',

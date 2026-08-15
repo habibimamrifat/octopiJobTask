@@ -1,8 +1,4 @@
-import {
-  Body,
-  Controller,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 
 import { AuthService } from './auth.service';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -13,9 +9,7 @@ import { RouteFor } from '../../decorators/route-for.decorator';
 
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private readonly authService: AuthService,
-  ) {}
+  constructor(private readonly authService: AuthService) {}
 
   @RouteFor(['all'])
   @Post('login')
@@ -25,29 +19,19 @@ export class AuthController {
 
   @RouteFor(['all'])
   @Post('refresh')
-  refresh(
-    @Body() refreshTokenDto: RefreshTokenDto,
-  ) {
+  refresh(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refresh(refreshTokenDto);
   }
 
   @RouteFor(['all'])
   @Post('forgot-password')
-  forgotPassword(
-    @Body() forgotPasswordDto: ForgotPasswordDto,
-  ) {
-    return this.authService.forgotPassword(
-      forgotPasswordDto,
-    );
+  forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgotPasswordDto);
   }
 
   @RouteFor(['all'])
   @Post('reset-password')
-  resetPassword(
-    @Body() resetPasswordDto: ResetPasswordDto,
-  ) {
-    return this.authService.resetPassword(
-      resetPasswordDto,
-    );
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto);
   }
 }

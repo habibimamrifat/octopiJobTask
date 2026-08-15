@@ -10,6 +10,11 @@ async function bootstrap() {
     rawBody: true,
   });
 
+  console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
+  app.enableCors({
+    origin: process.env.FRONTEND_URL,
+  });
+
   console.log(
     `Server is running on port ${process.env.PORT ?? 3000}, node_env: ${process.env.NODE_ENV}`,
   );
