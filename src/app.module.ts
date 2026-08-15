@@ -12,6 +12,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JobsModule } from './jobs/job.module';
 import { BcryptModule } from './helpers/bcrypt/bcrypt.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { OrganizationModule } from './modules/organization/organization.module';
+import { PaymentModule } from './modules/payment/payment.module';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
     AuthModule,
     JobsModule,
     SubscriptionsModule,
+    OrganizationModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [

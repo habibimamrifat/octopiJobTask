@@ -19,6 +19,10 @@ async function bootstrap() {
     `Server is running on port ${process.env.PORT ?? 3000}, node_env: ${process.env.NODE_ENV}`,
   );
 
+  console.log('PORT:', process.env.PORT);
+  console.log('FRONTEND_URL:', process.env.FRONTEND_URL);
+  console.log('STRIPE_SECRET_KEY:', !!process.env.STRIPE_SECRET_KEY);
+
   app.useGlobalPipes(validationPipe);
   app.useGlobalFilters(new GlobalExceptionFilter());
   setupSwagger(app);

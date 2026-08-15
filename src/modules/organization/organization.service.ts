@@ -14,50 +14,49 @@ import { BcryptAbstract } from '../../helpers/bcrypt/bcrypt.abstract';
 
 @Injectable()
 export class OrganizationService {
-  constructor(private readonly prisma: PrismaService,
-    private readonly bcrypt :BcryptAbstract
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly bcrypt: BcryptAbstract,
   ) {}
 
-async create(dto: CreateOrganizationDto) {
-  const existingUser = await this.prisma.user.findUnique({
-    where: {
-      email: dto.userEmail,
-    },
-  });
+  async create(dto: CreateOrganizationDto) {
+    const existingUser = await this.prisma.user.findUnique({
+      where: {
+        email: dto.userEmail,
+      },
+    });
 
-  if (existingUser) {
-    throw new ConflictException('User email already exists');
-  }
+    if (existingUser) {
+      throw new ConflictException('User email already exists');
+    }
 
-  const packageData =
-    await this.prisma.subscriptionPackage.findUnique({
+    const packageData = await this.prisma.subscriptionPackage.findUnique({
       where: {
         id: dto.packageId,
       },
     });
 
-  if (!packageData) {
-    throw new NotFoundException('Subscription package not found');
-  }
+    if (!packageData) {
+      throw new NotFoundException('Subscription package not found');
+    }
 
-  if (!packageData.isActive) {
-    throw new BadRequestException(
-      'This subscription package is no longer available',
-    );
-  }
+    if (!packageData.isActive) {
+      throw new BadRequestException(
+        'This subscription package is no longer available',
+      );
+    }
 
-  if (!packageData.stripePriceId) {
-    throw new BadRequestException(
-      'This subscription package is not configured for payment',
-    );
-  }
+    if (!packageData.stripePriceId) {
+      throw new BadRequestException(
+        'This subscription package is not configured for payment',
+      );
+    }
 
- const hashedPassword = await this.bcrypt.createHash(dto.userPassword)
+    const hashedPassword = await this.bcrypt.createHash(dto.userPassword);
 
-  try {
-    return await this.prisma.$transaction(async (tx) => {
-      const registration =
-        await tx.pendingOrganizationRegistration.create({
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const registration = await tx.pendingOrganizationRegistration.create({
           data: {
             name: dto.name,
             contactEmail: dto.contactEmail,
@@ -71,27 +70,25 @@ async create(dto: CreateOrganizationDto) {
           },
         });
 
-      return {
-        registrationId: registration.id,
-        packageId: registration.packageId,
-        packageName: packageData.name,
-        amount: packageData.price,
-        billingInterval: packageData.billingInterval,
-      };
-    });
-  } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
-      throw new ConflictException(
-        'User email already exists',
-      );
-    }
+        return {
+          registrationId: registration.id,
+          packageId: registration.packageId,
+          packageName: packageData.name,
+          amount: packageData.price,
+          billingInterval: packageData.billingInterval,
+        };
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException('User email already exists');
+      }
 
-    throw error;
+      throw error;
+    }
   }
-}
 
   async getMyOrganization(organizationId: string) {
     const organization = await this.prisma.organization.findUnique({
@@ -284,9 +281,7 @@ async create(dto: CreateOrganizationDto) {
     const subscription = organization.subscriptions[0];
 
     if (!subscription) {
-      throw new BadRequestException(
-        'You need to subscribe to continue',
-      );
+      throw new BadRequestException('You need to subscribe to continue');
     }
 
     if (subscription.status !== SubscriptionStatus.ACTIVE) {
@@ -311,9 +306,7 @@ async create(dto: CreateOrganizationDto) {
     } | null,
   ) {
     if (!subscription) {
-      throw new BadRequestException(
-        'You need to subscribe to continue',
-      );
+      throw new BadRequestException('You need to subscribe to continue');
     }
 
     if (subscription.status !== 'ACTIVE') {

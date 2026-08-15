@@ -19,6 +19,7 @@ export class PaymentController {
   @Post('checkout/:registrationId')
   @RouteFor(['all'])
   createCheckout(@Param('registrationId') registrationId: string) {
+    console.log('registration is here ==>>', registrationId);
     return this.paymentService.createCheckout(registrationId);
   }
 
