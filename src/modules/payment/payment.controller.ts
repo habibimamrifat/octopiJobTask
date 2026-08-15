@@ -24,6 +24,7 @@ export class PaymentController {
   }
 
   @Post('webhook')
+  @RouteFor(['all'])
   handleWebhook(
     @Req() req: RawBodyRequest<Request>,
     @Headers('stripe-signature') signature: string,
