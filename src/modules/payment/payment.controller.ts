@@ -29,6 +29,7 @@ export class PaymentController {
     @Req() req: RawBodyRequest<Request>,
     @Headers('stripe-signature') signature: string,
   ) {
+    console.log('hook is being hit');
     if (!req.rawBody) {
       throw new BadRequestException('Raw request body is required');
     }

@@ -7,6 +7,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import Stripe from 'stripe';
 import { BcryptAbstract } from '../../helpers/bcrypt/bcrypt.abstract';
 import { BillingInterval } from '@prisma/client';
+import { MailService } from '../../helpers/mail/mail.service';
 
 @Injectable()
 export class PaymentService {
@@ -15,6 +16,7 @@ export class PaymentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly bcrypt: BcryptAbstract,
+    private readonly email: MailService,
   ) {
     this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
   }
@@ -183,6 +185,201 @@ export class PaymentService {
     }
   }
 
+  // send email to the organization creator.........................
+  async sendOrganizationCreationConfirmation(data: {
+    to: string;
+    organizationName: string;
+    userName: string;
+    userEmail: string;
+
+    packageName: string;
+    packagePrice: any;
+    billingInterval: string;
+
+    subscriptionStartDate: Date | null;
+    subscriptionEndDate: Date | null;
+
+    paymentAmount: any;
+    paymentCurrency: string;
+    paymentStatus: string;
+    paidAt: Date | null;
+
+    stripeCheckoutId: string | null;
+    transactionId: string;
+  }) {
+    const formatDate = (date: Date | null) => {
+      if (!date) return 'N/A';
+
+      return new Intl.DateTimeFormat('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(date);
+    };
+
+    const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>Organization Created Successfully</title>
+      </head>
+
+      <body style="
+        margin: 0;
+        padding: 0;
+        background-color: #f5f7fa;
+        font-family: Arial, Helvetica, sans-serif;
+        color: #333;
+      ">
+
+        <div style="
+          max-width: 650px;
+          margin: 40px auto;
+          background: #ffffff;
+          border-radius: 10px;
+          overflow: hidden;
+          border: 1px solid #e5e7eb;
+        ">
+
+          <div style="
+            background: #111827;
+            padding: 30px;
+            text-align: center;
+            color: #ffffff;
+          ">
+            <h1 style="margin: 0;">
+              Organization Created Successfully
+            </h1>
+
+            <p style="margin: 10px 0 0;">
+              Welcome to our platform, ${data.userName}
+            </p>
+          </div>
+
+          <div style="padding: 30px;">
+
+            <p>
+              Your payment has been successfully processed and your
+              organization has been created.
+            </p>
+
+            <h2>Organization Details</h2>
+
+            <table width="100%" cellpadding="8" cellspacing="0">
+              <tr>
+                <td><strong>Organization</strong></td>
+                <td>${data.organizationName}</td>
+              </tr>
+
+              <tr>
+                <td><strong>Administrator</strong></td>
+                <td>${data.userName}</td>
+              </tr>
+
+              <tr>
+                <td><strong>Email</strong></td>
+                <td>${data.userEmail}</td>
+              </tr>
+            </table>
+
+            <h2>Subscription Details</h2>
+
+            <table width="100%" cellpadding="8" cellspacing="0">
+              <tr>
+                <td><strong>Package</strong></td>
+                <td>${data.packageName}</td>
+              </tr>
+
+              <tr>
+                <td><strong>Price</strong></td>
+                <td>
+                  ${data.packagePrice} ${data.paymentCurrency.toUpperCase()}
+                </td>
+              </tr>
+
+              <tr>
+                <td><strong>Billing Interval</strong></td>
+                <td>${data.billingInterval}</td>
+              </tr>
+
+              <tr>
+                <td><strong>Subscription Start</strong></td>
+                <td>${formatDate(data.subscriptionStartDate)}</td>
+              </tr>
+
+              <tr>
+                <td><strong>Subscription End</strong></td>
+                <td>${formatDate(data.subscriptionEndDate)}</td>
+              </tr>
+            </table>
+
+            <h2>Payment Confirmation</h2>
+
+            <table width="100%" cellpadding="8" cellspacing="0">
+              <tr>
+                <td><strong>Payment Status</strong></td>
+                <td>${data.paymentStatus}</td>
+              </tr>
+
+              <tr>
+                <td><strong>Amount Paid</strong></td>
+                <td>
+                  ${data.paymentAmount}
+                  ${data.paymentCurrency.toUpperCase()}
+                </td>
+              </tr>
+
+              <tr>
+                <td><strong>Paid At</strong></td>
+                <td>${formatDate(data.paidAt)}</td>
+              </tr>
+
+              <tr>
+                <td><strong>Transaction ID</strong></td>
+                <td>${data.transactionId}</td>
+              </tr>
+
+              <tr>
+                <td><strong>Stripe Checkout ID</strong></td>
+                <td>${data.stripeCheckoutId}</td>
+              </tr>
+            </table>
+
+            <p style="
+              margin-top: 30px;
+              padding: 15px;
+              background: #f3f4f6;
+              border-radius: 6px;
+            ">
+              Please keep this email for your records as confirmation
+              of your organization creation and payment.
+            </p>
+
+          </div>
+
+          <div style="
+            padding: 20px;
+            text-align: center;
+            background: #f9fafb;
+            color: #6b7280;
+            font-size: 13px;
+          ">
+            This is an automated email. Please do not reply to this message.
+          </div>
+
+        </div>
+
+      </body>
+    </html>
+  `;
+
+    await this.email.sendMail(
+      data.to,
+      `Organization Created Successfully - ${data.organizationName}`,
+      html,
+    );
+  }
+
   //create organization ............................
 
   private calculateEndDate(billingInterval: BillingInterval): Date {
@@ -197,184 +394,12 @@ export class PaymentService {
     return endDate;
   }
 
-  // private async createOrganizationFromRegistration(
-  //   registrationId: string,
-  //   session: Stripe.Checkout.Session,
-  //   eventId: string,
-  // ) {
-  //   const registration =
-  //     await this.prisma.pendingOrganizationRegistration.findUnique({
-  //       where: {
-  //         id: registrationId,
-  //       },
-  //     });
-
-  //   if (!registration) {
-  //     throw new NotFoundException(
-  //       'Pending organization registration not found',
-  //     );
-  //   }
-
-  //   const packageData = await this.prisma.subscriptionPackage.findUnique({
-  //     where: {
-  //       id: registration.packageId,
-  //     },
-  //   });
-
-  //   if (!packageData) {
-  //     throw new NotFoundException('Subscription package not found');
-  //   }
-
-  //   return this.prisma.$transaction(async (tx) => {
-  //     // 1. Create Organization
-  //     const organization = await tx.organization.create({
-  //       data: {
-  //         name: registration.name,
-  //         contactEmail: registration.contactEmail,
-  //         billingEmail: registration.billingEmail,
-  //       },
-  //     });
-
-  //     // 2. Create Organization Admin
-  //     // Password is already hashed in PendingOrganizationRegistration
-  //     const user = await tx.user.create({
-  //       data: {
-  //         name: registration.userName,
-  //         email: registration.userEmail,
-  //         password: registration.userPassword,
-  //         role: 'ORGANIZATION_ADMIN',
-  //         organizationId: organization.id,
-  //       },
-  //     });
-
-  //     // 3. Create Subscription
-  //     const subscription = await tx.organizationSubscription.create({
-  //       data: {
-  //         organizationId: organization.id,
-  //         packageId: packageData.id,
-  //         status: 'ACTIVE',
-  //         startDate: new Date(),
-  //         endDate: this.calculateEndDate(packageData.billingInterval),
-  //       },
-  //     });
-
-  //     // 4. Create Payment
-  //     const payment = await tx.payment.create({
-  //       data: {
-  //         organizationId: organization.id,
-  //         amount: packageData.price,
-  //         currency: 'usd',
-  //         status: 'SUCCESS',
-  //         stripeCheckoutId: session.id,
-  //         paidAt: new Date(),
-  //       },
-  //     });
-
-  //     // 5. Create Transaction
-  //     const transaction = await tx.transaction.create({
-  //       data: {
-  //         organizationId: organization.id,
-  //         paymentId: payment.id,
-  //         amount: packageData.price,
-  //         currency: 'usd',
-  //         status: 'SUCCESS',
-  //         stripeEventId: eventId,
-  //       },
-  //     });
-
-  //     // 6. Remove pending registration
-  //     await tx.pendingOrganizationRegistration.delete({
-  //       where: {
-  //         id: registration.id,
-  //       },
-  //     });
-
-  //     return {
-  //       organization,
-  //       user: {
-  //         id: user.id,
-  //         name: user.name,
-  //         email: user.email,
-  //         role: user.role,
-  //       },
-  //       subscription,
-  //       payment,
-  //       transaction,
-  //     };
-  //   });
-  // }
-
-  // //create organization ............................
-
-  // async handleWebhook(rawBody: Buffer, signature: string) {
-  //   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-  //   if (!webhookSecret) {
-  //     throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
-  //   }
-
-  //   let event: Stripe.Event;
-
-  //   try {
-  //     event = this.stripe.webhooks.constructEvent(
-  //       rawBody,
-  //       signature,
-  //       webhookSecret,
-  //     );
-  //   } catch {
-  //     throw new BadRequestException('Invalid Stripe webhook signature');
-  //   }
-
-  //   switch (event.type) {
-  //     case 'checkout.session.completed': {
-  //       const session = event.data.object;
-
-  //       const registrationId = session.metadata?.registrationId;
-
-  //       if (!registrationId) {
-  //         throw new BadRequestException(
-  //           'Registration ID missing from Stripe checkout session',
-  //         );
-  //       }
-
-  //       await this.createOrganizationFromRegistration(
-  //         registrationId,
-  //         session,
-  //         event.id,
-  //       );
-
-  //       break;
-  //     }
-
-  //     case 'checkout.session.expired': {
-  //       const session = event.data.object;
-
-  //       console.log('Checkout expired:', session.id);
-
-  //       break;
-  //     }
-
-  //     default:
-  //       console.log(`Unhandled Stripe event: ${event.type}`);
-  //   }
-
-  //   return {
-  //     received: true,
-  //   };
-  // }
-
   private async createOrganizationFromRegistration(
     registrationId: string,
     session: Stripe.Checkout.Session,
     eventId: string,
   ) {
-    // console.log('Registration ID:', registrationId);
-    // console.log('Stripe Session ID:', session.id);
-    // console.log('Stripe Event ID:', eventId);
-
     try {
-      // console.log('\n[1] Finding pending registration...');
-
       const registration =
         await this.prisma.pendingOrganizationRegistration.findUnique({
           where: {
@@ -390,22 +415,6 @@ export class PaymentService {
         );
       }
 
-      console.log('Registration data:', {
-        id: registration.id,
-        name: registration.name,
-        contactEmail: registration.contactEmail,
-        billingEmail: registration.billingEmail,
-        userName: registration.userName,
-        userEmail: registration.userEmail,
-        packageId: registration.packageId,
-
-        // NEVER print the actual password
-        hasPassword: !!registration.userPassword,
-        passwordLength: registration.userPassword?.length ?? 0,
-      });
-
-      console.log('\n[2] Finding subscription package...');
-
       const packageData = await this.prisma.subscriptionPackage.findUnique({
         where: {
           id: registration.packageId,
@@ -418,17 +427,6 @@ export class PaymentService {
         throw new NotFoundException('Subscription package not found');
       }
 
-      console.log('Package:', {
-        id: packageData.id,
-        name: packageData.name,
-        price: packageData.price,
-        billingInterval: packageData.billingInterval,
-        isActive: packageData.isActive,
-        stripePriceId: packageData.stripePriceId,
-      });
-
-      console.log('\n[3] Starting database transaction...');
-
       const result = await this.prisma.$transaction(async (tx) => {
         console.log('[3.1] Creating organization...');
 
@@ -439,13 +437,6 @@ export class PaymentService {
             billingEmail: registration.billingEmail,
           },
         });
-
-        console.log('[3.1] Organization created:', {
-          id: organization.id,
-          name: organization.name,
-        });
-
-        console.log('[3.2] Creating organization admin...');
 
         const user = await tx.user.create({
           data: {
@@ -461,18 +452,6 @@ export class PaymentService {
           },
         });
 
-        console.log('[3.2] Organization admin created:', {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          organizationId: user.organizationId,
-          passwordExists: !!user.password,
-          passwordLength: user.password?.length ?? 0,
-        });
-
-        console.log('[3.3] Creating organization subscription...');
-
         const subscription = await tx.organizationSubscription.create({
           data: {
             organizationId: organization.id,
@@ -482,17 +461,6 @@ export class PaymentService {
             endDate: this.calculateEndDate(packageData.billingInterval),
           },
         });
-
-        console.log('[3.3] Subscription created:', {
-          id: subscription.id,
-          organizationId: subscription.organizationId,
-          packageId: subscription.packageId,
-          status: subscription.status,
-          startDate: subscription.startDate,
-          endDate: subscription.endDate,
-        });
-
-        console.log('[3.4] Creating payment...');
 
         const payment = await tx.payment.create({
           data: {
@@ -505,16 +473,6 @@ export class PaymentService {
           },
         });
 
-        console.log('[3.4] Payment created:', {
-          id: payment.id,
-          organizationId: payment.organizationId,
-          amount: payment.amount,
-          status: payment.status,
-          stripeCheckoutId: payment.stripeCheckoutId,
-        });
-
-        console.log('[3.5] Creating transaction...');
-
         const transaction = await tx.transaction.create({
           data: {
             organizationId: organization.id,
@@ -526,24 +484,11 @@ export class PaymentService {
           },
         });
 
-        console.log('[3.5] Transaction created:', {
-          id: transaction.id,
-          organizationId: transaction.organizationId,
-          paymentId: transaction.paymentId,
-          amount: transaction.amount,
-          status: transaction.status,
-          stripeEventId: transaction.stripeEventId,
-        });
-
-        console.log('[3.6] Removing pending registration...');
-
         await tx.pendingOrganizationRegistration.delete({
           where: {
             id: registration.id,
           },
         });
-
-        console.log('[3.6] Pending registration removed.');
 
         return {
           organization,
@@ -554,56 +499,41 @@ export class PaymentService {
         };
       });
 
-      console.log('\nDATABASE TRANSACTION COMPLETED SUCCESSFULLY');
+      await this.sendOrganizationCreationConfirmation({
+        to: result.user.email,
+        organizationName: result.organization.name,
+        userName: result.user.name,
+        userEmail: result.user.email,
 
-      console.log('Created organization:', {
-        id: result.organization.id,
-        name: result.organization.name,
-      });
+        packageName: packageData.name,
+        packagePrice: packageData.price,
+        billingInterval: packageData.billingInterval,
 
-      console.log('Created user:', {
-        id: result.user.id,
-        email: result.user.email,
-        role: result.user.role,
-        organizationId: result.user.organizationId,
-      });
+        subscriptionStartDate: result.subscription.startDate,
+        subscriptionEndDate: result.subscription.endDate,
 
-      console.log('Created subscription:', {
-        id: result.subscription.id,
-        status: result.subscription.status,
-      });
+        paymentAmount: result.payment.amount,
+        paymentCurrency: result.payment.currency,
+        paymentStatus: result.payment.status,
+        paidAt: result.payment.paidAt,
 
-      console.log('Created payment:', {
-        id: result.payment.id,
-        status: result.payment.status,
-      });
-
-      console.log('Created transaction:', {
-        id: result.transaction.id,
-        status: result.transaction.status,
+        stripeCheckoutId: result.payment.stripeCheckoutId,
+        transactionId: result.transaction.id,
       });
 
       return {
         organization: result.organization,
-
         user: {
           id: result.user.id,
           name: result.user.name,
           email: result.user.email,
           role: result.user.role,
         },
-
         subscription: result.subscription,
         payment: result.payment,
         transaction: result.transaction,
       };
     } catch (error) {
-      console.error('Registration ID:', registrationId);
-
-      console.error('Stripe Session ID:', session.id);
-
-      console.error('Stripe Event ID:', eventId);
-
       if (error instanceof Error) {
         console.error('Error message:', error.message);
 
@@ -617,16 +547,8 @@ export class PaymentService {
   }
 
   async handleWebhook(rawBody: Buffer, signature: string) {
-    console.log('Raw body exists:', !!rawBody);
-
-    console.log('Raw body length:', rawBody?.length ?? 0);
-
-    console.log('Stripe signature exists:', !!signature);
-
     try {
       const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-
-      console.log('Webhook secret configured:', !!webhookSecret);
 
       if (!webhookSecret) {
         throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
@@ -641,8 +563,6 @@ export class PaymentService {
           webhookSecret,
         );
       } catch (error) {
-        console.error('Stripe webhook signature verification failed:');
-
         if (error instanceof Error) {
           console.error(error.message);
         }
